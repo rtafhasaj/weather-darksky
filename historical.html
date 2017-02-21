@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title></title>
+    <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet"
+          type="text/css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <link rel="stylesheet" href="css/sweetalert.css">
+    <style>
+        .row::after {
+            content: "";
+            clear: both;
+            display: table;
+        }
+
+        [class*="col-"] {
+            float: left;
+            padding: 15px;
+        }
+
+        .col-2 {
+            width: 16.66%;
+        }
+
+        .col-8 {
+            width: 66.66%;
+        }
+
+        body {
+            background-color: white;
+            overflow-x: hidden;
+        }
+    </style>
+</head>
+<body id="historical">
+<div>
+    <div class="container">
+        <div id="sidebar">
+            <ul>
+                <li><a href="index.html">Home</a></li>
+                <li><a href="historical.html">History</a></li>
+                <li><a href="#popup1">Add Location</a></li>
+                <li>
+                    <a id="saved_location" href="#">Saved Locations
+                        <i class="fa fa-plus" aria-hidden="true"
+                           style="float: left;padding-top: 3px;padding-right: 10px;"></i>
+                    </a>
+                    <ul id="saved">
+
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+    <div id="popup1" class="overlay">
+        <div class="popup">
+            <h2>Save City</h2>
+            <a class="close" href="#">&times;</a>
+
+            <div class="content input">
+                <input type="text" class="button" id="city" name="city" placeholder="Write city name">
+                <input type="submit" class="button save-btn" id="submit" value="SAVE">
+            </div>
+        </div>
+    </div>
+    <div id="search" style="z-index:1; background-color: #fff; margin-top: 64px; position: fixed; border-radius: 100px; left: 50%; transform: translate(-50%, -50%); width: 70%; ">
+        <a href="#" id="sidebar-toggle" data-toggle=".container"
+           style="position: fixed;z-index: 1;font-size: 36px;margin-left: 25px;">
+            <i class="fa fa-bars" aria-hidden="true" style="line-height: inherit"></i>
+        </a>
+
+        <form class="find-location" action="#">
+            <input type="text" id="address" style="padding-left: 100px;" placeholder="Find your location...">
+            <input id="datepicker" value="Choose a date..." style="position: inherit;padding: 20px 50px 20px 20px;background: #1e202b;color: white;float: right;margin-right: 30%;">
+            <input type="button" id="find" onclick="getCoordinates()" value="Find">
+        </form>
+    </div>
+</div>
+<div class="row" style="padding-top: 100px;display: none">
+    <div class="col-2"></div>
+    <div class="col-8">
+        <div id="container" style="min-width: 310px; height: 400px; margin: 0 auto;"></div>
+        <div id="container1" style="min-width: 310px; height: 400px; margin: 0 auto;"></div>
+    </div>
+    <div class="col-2"></div>
+</div>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="https://code.highcharts.com/modules/exporting.js"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+<script src="js/main.js"></script>
+<script src="js/db.js"></script>
+<script src="js/highchart.js"></script>
+<script src="js/findCity.js"></script>
+<script src="js/sweetalert.min.js"></script>
+<script>
+$("#datepicker").datepicker();
+</script>
+<script type="text/javascript">
+    function getCoordinates(){
+        var address = $('#address').val();
+        var date = $('#datepicker').val();
+        if(address.length == 0 || date.length == 0 || date == "Choose a date..."){
+            swal("Oops...", "Please complete all fields", "error");
+        }else{
+            /* show an loader images after the find button is clicked*/
+            $('#historical').css('background-image', 'url(icons/loading.gif)');
+            $('#historical').css('background-repeat', 'no-repeat');
+            $('#historical').css('background-position-x', 'center');
+            $('#historical').css('background-position-y', 'center');
+            $.ajax({
+                url: "https://maps.googleapis.com/maps/api/geocode/json?address="+address+"&key=AIzaSyDb3X4tW3HAXD9W1Hv3xCIHMdAoJ6Vs68U",
+                dataType: "json",
+                success: function (data) { // get coordinates of the city
+                    var lat = data.results[0].geometry.location.lat;
+                    var lon = data.results[0].geometry.location.lng;
+                    historic(lat, lon)
+                }
+            });
+        }
+    }
+
+</script>
+</body>
+</html>

@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Weather forecast</title>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet"
+          type="text/css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/sweetalert.css">
+</head>
+<body style="overflow-x: hidden;">
+<div>
+    <div class="container">
+        <div id="sidebar">
+            <ul>
+                <li><a href="index.html">Home</a></li>
+                <li><a href="historical.html">History</a></li>
+                <li><a href="#popup1">Add Location</a></li>
+                <li>
+                    <a id="saved_location" href="#">Saved Locations
+                        <i class="fa fa-plus" aria-hidden="true"
+                           style="float: left;padding-top: 3px;padding-right: 10px;"></i>
+                    </a>
+                    <ul id="saved">
+
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+    <div id="popup1" class="overlay">
+        <div class="popup">
+            <h2>Save City</h2>
+            <a class="close" href="#">&times;</a>
+            <div class="content input">
+                <input type="text" class="button" id="city" name="city" placeholder="Write city name">
+                <input type="submit" class="button save-btn" id="submit" value="SAVE">
+            </div>
+        </div>
+    </div>
+
+    <div id="search"
+         style="z-index:1; background-color: #fff; margin-top: 35px; position: fixed; border-radius: 100px; left: 50%; transform: translate(-50%, -50%); width: 70%; ">
+        <a href="#" id="sidebar-toggle" class="sidebar-toggle1" data-toggle=".container"
+           style="position: fixed;z-index: 1;font-size: 36px;margin-left: 25px;">
+            <i class="fa fa-bars" aria-hidden="true" style="line-height: inherit"></i>
+        </a>
+
+        <form class="find-location" action="">
+            <input type="text" id="input" style="padding-left: 100px;" placeholder="Find your location...">
+        </form>
+
+    </div>
+</div>
+
+<div id="map" style="position: relative; overflow: hidden;"></div>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDb3X4tW3HAXD9W1Hv3xCIHMdAoJ6Vs68U&libraries=places"></script>
+<script src="js/main.js"></script>
+<script src="js/db.js"></script>
+<script src="js/findCity.js"></script>
+<script src="js/sweetalert.min.js"></script>
+<script>
+    $(".find-location").submit(function(e){
+        e.preventDefault(); // remove the default action
+      });
+
+    function f_c(temp_f) {
+        var temp_f1 = (temp_f - 32) * 5 / 9; // convert fahrenheit to celcius
+        return Math.round(temp_f1);
+    }
+
+    var script = '<script src="js/infobubble';
+    if (document.location.search.indexOf('compiled') !== -1) {
+        script += '-compiled';
+    }
+    script += '.js"><' + '/script>';
+    document.write(script);
+
+    var lat, lon, infoBubble;
+    // create an array with months numbers,  based on the number, it returns the month name
+    var month = new Array();
+    month[0] = "January";
+    month[1] = "February";
+    month[2] = "March";
+    month[3] = "April";
+    month[4] = "May";
+    month[5] = "June";
+    month[6] = "July";
+    month[7] = "August";
+    month[8] = "September";
+    month[9] = "October";
+    month[10] = "November";
+    month[11] = "December";
+    // create an array with week numbers,  based on the number, it returns the day
+    function week(day) {
+        var weekday = new Array(7);
+        weekday[0] = "Sunday";
+        weekday[1] = "Monday";
+        weekday[2] = "Tuesday";
+        weekday[3] = "Wednesday";
+        weekday[4] = "Thursday";
+        weekday[5] = "Friday";
+        weekday[6] = "Saturday";
+        var d = new Date();
+        var time = d.getTime() + (1000 * 60 * 60 * (24 * day)); // convert time form miliseconds to days
+        return weekday[new Date(time).getDay()];
+    }
+    var d_m = new Date();
+    var m = month[d_m.getMonth()];
+    var dd = d_m.getDate();
+
+
+    function icons(type) {
+        // based on the response from ajax we get the correct icon
+        var icon = new Array(7);
+        icon["clear-day"] = "icons/clear-day.png";
+        icon["clear-night"] = "icons/clear-night.png";
+        icon["cloudy"] = "icons/cloudy.png";
+        icon["fog"] = "icons/fog.png";
+        icon["partly-cloudy-day"] = "icons/partly-cloudy-day.png";
+        icon["partly-cloudy-night"] = "icons/partly-cloudy-night.png";
+        icon["rain"] = "icons/rain.png";
+        icon["sleet"] = "icons/sleet.png";
+        icon["snow"] = "icons/snow.png";
+        icon["wind"] = "icons/wind.png";
+        return icon[type]
+    }
+
+    function getLocation() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(showPosition, showError); // get the current location
+        } else {
+            alert("Geolocation is not supported by this browser."); // if user does not support navigator error will be shown
+        }
+    }
+    function showError(error) {
+        switch (error.code) {
+            case error.PERMISSION_DENIED:
+                 alert("User denied the request for Geolocation.");
+                break;
+            case error.POSITION_UNAVAILABLE:
+                 alert("Location information is unavailable.");
+                break;
+            case error.TIMEOUT:
+                 alert("The request to get user location timed out.");
+                break;
+            case error.UNKNOWN_ERROR:
+                 alert("An unknown error occurred.");
+                break;
+        }
+    }
+    function showPosition(position) {
+        lat = position.coords.latitude;
+        lon = position.coords.longitude;
+
+         var map = new google.maps.Map(document.getElementById('map'), { // create google map based on coordinates that navigator provided
+            center: {lat: parseFloat(lat), lng: parseFloat(lon)},
+            zoom: 13
+        });
+
+        var userLatLng = new google.maps.LatLng(lat, lon);
+        var marker = new google.maps.Marker({
+            map: map,
+            anchorPoint: new google.maps.Point(0, -29),
+            position: userLatLng
+        });
+
+        var input = document.getElementById('input');
+        var autocomplete = new google.maps.places.Autocomplete(input);
+
+        try {
+            infoBubble.close();
+        } catch (e) {
+
+        }
+        var wind, loc;
+        infoBubble = new InfoBubble({ // style infoBubble window
+            map: map,
+            position: new google.maps.LatLng(-35, 151),
+            shadowStyle: 1,
+            padding: 0,
+            backgroundColor: '#323544',
+            borderRadius: 4,
+            arrowSize: 10,
+            borderWidth: 1,
+            borderColor: '#323544',
+            hideCloseButton: true,
+            backgroundClassName: 'phoney',
+            arrowStyle: 2
+        });
+
+        $.ajax({
+            url: "https://api.darksky.net/forecast/18a15c633fcb7af68dbcc2532c591476/" + lat + "," + lon, // based on coordinates get weather forecast from DarkSky
+            dataType: "jsonp",
+            success: function (data) {
+                wind = Math.round((data.currently.windSpeed * 1.60934 * 1000) / 3600);
+                var loc_1 = data.timezone;
+                loc = loc_1.split("/")[1];
+
+                infoBubble.open(map, marker);// open infoBubble in map automatically
+
+                /*
+                 * the content that will be display on infoBubble window
+                 * the content has info starting from today to one week later weather forecast
+                 */
+
+                var content = '<div class="forecast-container">' +
+                    '<div class="today forecast">' +
+                    '<div class="forecast-header">' +
+                    '<div class="day">' + week(0) + '</div>' +
+                    '<div class="date">' + dd + " " + m + '</div>' +
+                    '</div>' +
+                    '<div class="forecast-content">' +
+                    '<div class="location">' + loc + '</div>' +
+                    '<div class="degree">' +
+                    '<div class="num">' + f_c(data.currently.temperature) + '<sup>o</sup>C</div>' +
+                    '<div class="forecast-icon">' +
+                    '<img id="partly-cloudy-day" src="' + icons(data.currently.icon) + '" width="90">' +
+                    '</div>' +
+                    '</div>' +
+                    '<span><img src="icons/icon-umberella.png" alt="">' + data.currently.precipProbability * 100 + ' %</span>' +
+                    '<span><img src="icons/icon-wind.png" alt="">' + wind + ' m/s</span>' +
+                    '</div>' +
+                    '</div>' +
+
+                    '<div class="forecast">' +
+                    '<div class="forecast-header">' +
+                    '<div class="day">' + week(1) + '</div>' +
+                    '</div> <!-- .forecast-header -->' +
+                    '<div class="forecast-content">' +
+                    '	<div class="forecast-icon">' +
+                    '		<img src="' + icons(data.daily.data[1].icon) + '" alt="" width=48>' +
+                    '	</div>' +
+                    '	<div class="degree">' + f_c(data.daily.data[1].temperatureMax) + '<sup>o</sup>C</div>' +
+                    '	<small>' + f_c(data.daily.data[1].temperatureMin) + '<sup>o</sup></small>' +
+                    '</div>' +
+                    '</div>' +
+                    '<div class="forecast">' +
+                    '<div class="forecast-header">' +
+                    '	<div class="day">' + week(2) + '</div>' +
+                    '</div> <!-- .forecast-header -->' +
+                    '<div class="forecast-content">' +
+                    '	<div class="forecast-icon">' +
+                    '	<img src="' + icons(data.daily.data[2].icon) + '" alt="" width=48>' +
+                    '</div>' +
+                    '<div class="degree">' + f_c(data.daily.data[2].temperatureMax) + '<sup>o</sup>C</div>' +
+                    '<small>' + f_c(data.daily.data[2].temperatureMin) + '<sup>o</sup></small>' +
+                    '</div>' +
+                    '</div>' +
+                    '<div class="forecast">' +
+                    '<div class="forecast-header">' +
+                    '	<div class="day">' + week(3) + '</div>' +
+                    '</div> <!-- .forecast-header -->' +
+                    '<div class="forecast-content">' +
+                    '	<div class="forecast-icon">' +
+                    '		<img src="' + icons(data.daily.data[3].icon) + '" alt="" width=48>' +
+                    '</div>' +
+                    '<div class="degree">' + f_c(data.daily.data[3].temperatureMax) + '<sup>o</sup>C</div>' +
+                    '<small>' + f_c(data.daily.data[3].temperatureMin) + '<sup>o</sup></small>' +
+                    '</div>' +
+                    '</div>' +
+                    '<div class="forecast">' +
+                    '<div class="forecast-header">' +
+                    '	<div class="day">' + week(4) + '</div>' +
+                    '</div> <!-- .forecast-header -->' +
+                    '<div class="forecast-content">' +
+                    '	<div class="forecast-icon">' +
+                    '		<img src="' + icons(data.daily.data[4].icon) + '" alt="" width=48>' +
+                    '	</div>' +
+                    '	<div class="degree">' + f_c(data.daily.data[4].temperatureMax) + '<sup>o</sup>C</div>' +
+                    '	<small>' + f_c(data.daily.data[4].temperatureMin) + '<sup>o</sup></small>' +
+                    '</div>' +
+                    '</div>' +
+                    '<div class="forecast">' +
+                    '<div class="forecast-header">' +
+                    '	<div class="day">' + week(5) + '</div>' +
+                    '</div> <!-- .forecast-header -->' +
+                    '<div class="forecast-content">' +
+                    '	<div class="forecast-icon">' +
+                    '		<img src="' + icons(data.daily.data[5].icon) + '" alt="" width=48>' +
+                    '	</div>' +
+                    '	<div class="degree">' + f_c(data.daily.data[5].temperatureMax) + '<sup>o</sup>C</div>' +
+                    '	<small>' + f_c(data.daily.data[5].temperatureMin) + '<sup>o</sup></small>' +
+                    '</div>' +
+                    '</div>' +
+                    '<div class="forecast">' +
+                    '	<div class="forecast-header">' +
+                    '		<div class="day">' + week(6) + '</div>' +
+                    '	</div> <!-- .forecast-header -->' +
+                    '	<div class="forecast-content">' +
+                    '		<div class="forecast-icon">' +
+                    '		<img src="' + icons(data.daily.data[6].icon) + '" alt="" width=48>' +
+                    '		</div>' +
+                    '		<div class="degree">' + f_c(data.daily.data[6].temperatureMax) + '<sup>o</sup>C</div>' +
+                    '		<small>' + f_c(data.daily.data[6].temperatureMin) + '<sup>o</sup></small>' +
+                    '	</div>' +
+                    '</div>' +
+                    '</div>';
+                infoBubble.addTab('', content); // append the content above to the infoBubble window
+            }
+        });
+
+
+
+        autocomplete.addListener('place_changed', function () {  // when we search for a city, place_changed event catch it and from google API provide us the city's coordinates
+            try {
+                infoBubble.close();
+            } catch (e) {
+
+            }
+
+            var wind, loc;
+            infoBubble = new InfoBubble({ // style infoBubble window
+                map: map,
+                content: '<div class="phoneytext">Some label</div>',
+                position: new google.maps.LatLng(-35, 151),
+                shadowStyle: 1,
+                padding: 0,
+                backgroundColor: '#323544',
+                borderRadius: 4,
+                arrowSize: 10,
+                borderWidth: 1,
+                borderColor: '#323544',
+                disableAutoPan: true,
+                hideCloseButton: true,
+                arrowPosition: 30,
+                backgroundClassName: 'phoney',
+                arrowStyle: 2
+            });
+
+            var place = autocomplete.getPlace();
+            lat = place.geometry.location.lat();
+            lon = place.geometry.location.lng();
+
+            loc = place.formatted_address;
+
+            $.ajax({
+                url: "https://api.darksky.net/forecast/18a15c633fcb7af68dbcc2532c591476/" + lat + "," + lon, // based on coordinates get weather forecast from DarkSky
+                dataType: "jsonp",
+                success: function (data) {
+                    console.log(data);
+
+                    wind = Math.round((data.currently.windSpeed * 1.60934 * 1000) / 3600);
+
+                    infoBubble.open(map, marker);// open infoBubble in map automatically
+
+                    /*
+                     * the content that will be display on infoBubble window
+                     * the content has info starting from today to one week later weather forecast
+                     */
+
+                    var content = '<div class="forecast-container">' +
+                        '<div class="today forecast">' +
+                        '<div class="forecast-header">' +
+                        '<div class="day">' + week(0) + '</div>' +
+                        '<div class="date">' + dd + " " + m + '</div>' +
+                        '</div>' +
+                        '<div class="forecast-content">' +
+                        '<div class="location">' + loc + '</div>' +
+                        '<div class="degree">' +
+                        '<div class="num">' + f_c(data.currently.temperature) + '<sup>o</sup>C</div>' +
+                        '<div class="forecast-icon">' +
+                        '<img id="partly-cloudy-day" src="' + icons(data.currently.icon) + '" width="90">' +
+                        '</div>' +
+                        '</div>' +
+                        '<span><img src="icons/icon-umberella.png" alt="">' + data.currently.precipProbability * 100 + ' %</span>' +
+                        '<span><img src="icons/icon-wind.png" alt="">' + wind + ' m/s</span>' +
+                        '</div>' +
+                        '</div>' +
+
+                        '<div class="forecast">' +
+                        '<div class="forecast-header">' +
+                        '<div class="day">' + week(1) + '</div>' +
+                        '</div> <!-- .forecast-header -->' +
+                        '<div class="forecast-content">' +
+                        '	<div class="forecast-icon">' +
+                        '		<img src="' + icons(data.daily.data[1].icon) + '" alt="" width=48>' +
+                        '	</div>' +
+                        '	<div class="degree">' + f_c(data.daily.data[1].temperatureMax) + '<sup>o</sup>C</div>' +
+                        '	<small>' + f_c(data.daily.data[1].temperatureMin) + '<sup>o</sup></small>' +
+                        '</div>' +
+                        '</div>' +
+                        '<div class="forecast">' +
+                        '<div class="forecast-header">' +
+                        '	<div class="day">' + week(2) + '</div>' +
+                        '</div> <!-- .forecast-header -->' +
+                        '<div class="forecast-content">' +
+                        '	<div class="forecast-icon">' +
+                        '	<img src="' + icons(data.daily.data[2].icon) + '" alt="" width=48>' +
+                        '</div>' +
+                        '<div class="degree">' + f_c(data.daily.data[2].temperatureMax) + '<sup>o</sup>C</div>' +
+                        '<small>' + f_c(data.daily.data[2].temperatureMin) + '<sup>o</sup></small>' +
+                        '</div>' +
+                        '</div>' +
+                        '<div class="forecast">' +
+                        '<div class="forecast-header">' +
+                        '	<div class="day">' + week(3) + '</div>' +
+                        '</div> <!-- .forecast-header -->' +
+                        '<div class="forecast-content">' +
+                        '	<div class="forecast-icon">' +
+                        '		<img src="' + icons(data.daily.data[3].icon) + '" alt="" width=48>' +
+                        '</div>' +
+                        '<div class="degree">' + f_c(data.daily.data[3].temperatureMax) + '<sup>o</sup>C</div>' +
+                        '<small>' + f_c(data.daily.data[3].temperatureMin) + '<sup>o</sup></small>' +
+                        '</div>' +
+                        '</div>' +
+                        '<div class="forecast">' +
+                        '<div class="forecast-header">' +
+                        '	<div class="day">' + week(4) + '</div>' +
+                        '</div> <!-- .forecast-header -->' +
+                        '<div class="forecast-content">' +
+                        '	<div class="forecast-icon">' +
+                        '		<img src="' + icons(data.daily.data[4].icon) + '" alt="" width=48>' +
+                        '	</div>' +
+                        '	<div class="degree">' + f_c(data.daily.data[4].temperatureMax) + '<sup>o</sup>C</div>' +
+                        '	<small>' + f_c(data.daily.data[4].temperatureMin) + '<sup>o</sup></small>' +
+                        '</div>' +
+                        '</div>' +
+                        '<div class="forecast">' +
+                        '<div class="forecast-header">' +
+                        '	<div class="day">' + week(5) + '</div>' +
+                        '</div> <!-- .forecast-header -->' +
+                        '<div class="forecast-content">' +
+                        '	<div class="forecast-icon">' +
+                        '		<img src="' + icons(data.daily.data[5].icon) + '" alt="" width=48>' +
+                        '	</div>' +
+                        '	<div class="degree">' + f_c(data.daily.data[5].temperatureMax) + '<sup>o</sup>C</div>' +
+                        '	<small>' + f_c(data.daily.data[5].temperatureMin) + '<sup>o</sup></small>' +
+                        '</div>' +
+                        '</div>' +
+                        '<div class="forecast">' +
+                        '	<div class="forecast-header">' +
+                        '		<div class="day">' + week(6) + '</div>' +
+                        '	</div> <!-- .forecast-header -->' +
+                        '	<div class="forecast-content">' +
+                        '		<div class="forecast-icon">' +
+                        '		<img src="' + icons(data.daily.data[6].icon) + '" alt="" width=48>' +
+                        '		</div>' +
+                        '		<div class="degree">' + f_c(data.daily.data[6].temperatureMax) + '<sup>o</sup>C</div>' +
+                        '		<small>' + f_c(data.daily.data[6].temperatureMin) + '<sup>o</sup></small>' +
+                        '	</div>' +
+                        '</div>' +
+                        '</div>';
+                    infoBubble.addTab('', content); // append the content above to the infoBubble window
+                }
+            });
+
+
+            marker.setVisible(false);// remove the actualy marker
+
+            if (!place.geometry) {
+                window.alert("No details available for input: '" + place.name + "'");
+                return;
+            }
+
+            // If the place has a geometry, then present it on a map.
+            if (place.geometry.viewport) {
+                map.fitBounds(place.geometry.viewport);
+                map.panBy(210,-180);
+            } else {
+                map.setCenter(place.geometry.location);
+                map.setZoom(17);  // Why 17? Because it looks good.
+                map.panBy(210,-180);
+            }
+            marker.setPosition(place.geometry.location); // give to the marker the position that will be pinned to google Map
+            marker.setVisible(true);// show the new marker
+        });
+    }
+
+    getLocation();
+
+
+</script>
+
+</body>
+</html>
